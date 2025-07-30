@@ -1,3 +1,6 @@
+def parse_cors_origins(cors_origins: str) -> list:
+    """Parse a comma-separated CORS origins string into a list of URLs."""
+    return [origin.strip() for origin in cors_origins.split(",") if origin.strip()]
 import secrets
 import warnings
 from typing import Annotated, Any, Literal
