@@ -14,6 +14,7 @@ def test_frontend_dashboard():
     except requests.exceptions.ConnectionError:
         pytest.skip("Frontend not running on http://localhost:5173/")
     
+
     # 2. Parse the HTML
     soup = BeautifulSoup(response.text, "html.parser")
     
