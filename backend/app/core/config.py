@@ -80,6 +80,7 @@ class Settings(BaseSettings):
     SMTP_PASSWORD: str | None = None
     EMAILS_FROM_EMAIL: EmailStr | None = None
     EMAILS_FROM_NAME: EmailStr | None = None
+    EMAILS_TEMPLATES_DIR: str = "app/email-templates/build"
 
     @model_validator(mode="after")
     def _set_default_emails_from(self) -> Self:
@@ -89,10 +90,12 @@ class Settings(BaseSettings):
 
     EMAIL_RESET_TOKEN_EXPIRE_HOURS: int = 48
 
-    @computed_field  # type: ignore[prop-decorator]
-    @property
-    def emails_enabled(self) -> bool:
-        return bool(self.SMTP_HOST and self.EMAILS_FROM_EMAIL)
+    EMAILS_ENABLED: bool = False
+    
+    @model_validator(mode="after")
+    def _set_emails_enabled(self) -> Self:
+        self.EMAILS_ENABLED = bool(self.SMTP_HOST and self.EMAILS_FROM_EMAIL)
+        return self
 
     EMAIL_TEST_USER: EmailStr = "test@example.com"
     FIRST_SUPERUSER: EmailStr

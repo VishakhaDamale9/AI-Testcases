@@ -45,12 +45,15 @@ def test_cors_headers(client: TestClient) -> None:
         headers={
             "Origin": "http://localhost:5173",
             "Access-Control-Request-Method": "POST",
+            "Access-Control-Request-Headers": "Content-Type",
         },
     )
     assert response.status_code == 200
     assert "access-control-allow-origin" in response.headers
     assert "access-control-allow-methods" in response.headers
-    assert "access-control-allow-headers" in response.headers
+    # Check for case-insensitive header names
+    headers_lower = {k.lower(): v for k, v in response.headers.items()}
+    assert "access-control-allow-headers" in headers_lower
 
 
 def test_custom_generate_unique_id() -> None:

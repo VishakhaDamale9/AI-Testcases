@@ -7,6 +7,7 @@ from app.core.config import settings
 from app.tests.utils.utils import random_email, random_lower_string
 from app.crud import crud_user
 from app.db.session import SessionLocal
+from app.tests.features.steps.common_steps import step_impl_auth_superuser, step_impl_auth_regular_user, step_impl_not_auth
 
 # Initialize the TestClient
 client = TestClient(app)
@@ -31,27 +32,9 @@ def step_impl(context):
     context.response = None
     context.db = next(get_db())
 
-@given('I am an authenticated superuser')
-def step_impl(context):
-    token = authentication_token_from_email(
-        client=context.client,
-        email=settings.FIRST_SUPERUSER,
-        db=context.db
-    )
-    context.headers = {"Authorization": f"Bearer {token}"}
+"}
 
-@given('I am an authenticated regular user')
-def step_impl(context):
-    token = authentication_token_from_email(
-        client=context.client,
-        email=settings.EMAIL_TEST_USER,
-        db=context.db
-    )
-    context.headers = {"Authorization": f"Bearer {token}"}
-
-@given('I am not authenticated')
-def step_impl(context):
-    context.headers = {}
+"}
 
 @given('there is an existing user with ID "{user_id}"')
 def step_impl(context, user_id):
@@ -185,4 +168,4 @@ def step_impl(context, field):
             found = True
             break
     
-    assert found, f"Validation error for field '{field}' not found in response: {data}"
+    assert found, f"Validation error for field '{field}'

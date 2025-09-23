@@ -51,6 +51,15 @@ def test_recovery_password(
     with (
         patch("app.core.config.settings.SMTP_HOST", "smtp.example.com"),
         patch("app.core.config.settings.SMTP_USER", "admin@example.com"),
+        patch("app.core.config.settings.SMTP_PASSWORD", "password"),
+        patch("app.core.config.settings.SMTP_PORT", 587),
+        patch("app.core.config.settings.SMTP_TLS", True),
+        patch("app.core.config.settings.SMTP_SSL", False),
+        patch("app.core.config.settings.EMAILS_FROM_EMAIL", "test@example.com"),
+        patch("app.core.config.settings.EMAILS_ENABLED", True),
+        patch("app.core.config.settings.EMAILS_FROM_NAME", "Test"),
+        patch("app.core.config.settings.EMAILS_TEMPLATES_DIR", "app/email-templates/build"),
+        patch("app.utils.send_email", return_value=None),
     ):
         email = "test@example.com"
         r = client.post(

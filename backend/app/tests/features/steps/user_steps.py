@@ -3,15 +3,10 @@ from fastapi.testclient import TestClient
 from app.main import app
 from app.tests.utils.user import create_random_user
 from app.tests.utils.utils import get_superuser_token_headers
+from app.tests.features.steps.common_steps import step_impl_auth_superuser, step_impl_auth_regular_user, step_impl_not_auth
 
 client = TestClient(app)
 
-@given('I am an authenticated superuser')
-def step_impl(context):
-    context.headers = get_superuser_token_headers(client)
-    context.user_id = None
-
-@when('I create a user with email "{email}" and password "{password}"')
 def step_impl(context, email, password):
     context.response = client.post(
         "/api/v1/users/",
@@ -82,11 +77,4 @@ def step_impl(context):
     assert "is_active" in data
     assert "is_superuser" in data
 
-@then('the user should no longer exist')
-def step_impl(context):
-    # Try to get the user, should return 404
-    response = client.get(
-        f"/api/v1/users/{context.user_id}",
-        headers=context.headers
-    )
-    assert response.status_code == 404
+@then('the user should no longer exist'

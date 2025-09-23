@@ -72,12 +72,12 @@ def analyze_models():
         content = f.read()
     
     # Extract model classes using regex
-    model_pattern = r'class\s+([A-Za-z0-9_]+)\s*\([A-Za-z0-9_,\s]+\):\s*([^\n]*\n(?:\s+[^\n]*\n)*)'  
+    model_pattern = r'class\s+([A-Za-z0-9_]+)\s*\([A-Za-z0-9_,\s]+\):\s*([^\n]*\n(?:\s+[^\n]*\n)*)'  # Match class definitions
     models = {}
-    for match in re.finditer(model_pattern, content):
-        model_name = match.group(1)
-        model_def = match.group(0)
-        models[model_name] = model_def
+    for match in re.finditer(model_pattern, content): # Match class names and definitions
+        model_name = match.group(1) # get the class name
+        model_def = match.group(0) # get the full class definition
+        models[model_name] = model_def # Parse command-line arguments for the script
     
     return models
 
@@ -108,9 +108,9 @@ def generate_feature_file(endpoint_info, models, crud_ops):
     file_name = os.path.basename(file_path).replace('.py', '')
     
     # Extract endpoint paths and methods using regex
-    router_pattern = r'@router\.([a-z]+)\("([^"]+)"'  
+    router_pattern = r'@router\.([a-z]+)\("([^"]+)"'  # Match FastAPI router decorators
     endpoints = []
-    for match in re.finditer(router_pattern, endpoint_info['content']):
+    for match in re.finditer(router_pattern, endpoint_info['content']): # Match HTTP methods and paths
         method = match.group(1)  # get, post, put, delete
         path = match.group(2)    # /users/, /items/{item_id}, etc.
         endpoints.append((method, path))
@@ -452,7 +452,7 @@ def generate_edge_case_features(uncovered_code):
     Then the response status code should be 500
 """
     
-    with open(edge_case_file, 'w') as f:
+    with open(edge_case_file, 'w') as f: 
         f.write(feature_content)
     
     print(f"Generated edge case feature file: {edge_case_file}")

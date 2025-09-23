@@ -1,27 +1,27 @@
-import os
-import re
-import json
-import argparse
-import subprocess
-from pathlib import Path
-from typing import List, Dict, Any, Optional, Tuple
+import os # Interacts with the filesystem (list directories, run process commands, etc.)
+import re # Regular expressions for pattern matching
+import json # Read/write JSON data
+import argparse # Parse command-line arguments for the script
+import subprocess # Run shell commands (e.g., pytest, behave)
+from pathlib import Path # Path manipulation
+from typing import List, Dict, Any, Optional, Tuple # Type hints for better code clarity
 
 # This script would use Groq's API in a real implementation
 # For this example, we'll simulate the API calls
 
 # Configuration
-API_DIR = Path('backend/app/api')
-MODELS_FILE = Path('backend/app/models.py')
-CRUD_FILE = Path('backend/app/crud.py')
-FEATURE_DIR = Path('backend/app/tests/features')
-STEPS_DIR = Path('backend/app/tests/features/steps')
+API_DIR = Path('backend/app/api') # Directory containing FastAPI API endpoints
+MODELS_FILE = Path('backend/app/models.py') # File containing Pydantic models
+CRUD_FILE = Path('backend/app/crud.py') # File containing CRUD operations
+FEATURE_DIR = Path('backend/app/tests/features') # Directory to store generated feature files
+STEPS_DIR = Path('backend/app/tests/features/steps') # Directory to store step definitions
 
 # Ensure directories exist
-FEATURE_DIR.mkdir(exist_ok=True, parents=True)
-STEPS_DIR.mkdir(exist_ok=True, parents=True)
+FEATURE_DIR.mkdir(exist_ok=True, parents=True) # Create features directory if it doesn't exist
+STEPS_DIR.mkdir(exist_ok=True, parents=True) # Create steps directory if it doesn't exist
 
 # Templates for prompt engineering
-ENDPOINT_ANALYSIS_PROMPT = """
+ENDPOINT_ANALYSIS_PROMPT = """ 
 You are an expert in BDD (Behavior-Driven Development) testing for FastAPI applications.
 
 Analyze the following FastAPI endpoint and generate comprehensive BDD scenarios in Gherkin format:
@@ -124,13 +124,13 @@ Use the following format for your response:
 Focus on achieving 100% code coverage with the suggested scenarios.
 """
 
-def simulate_groq_api_call(prompt, model="llama3-70b-8192"):
+def simulate_groq_api_call(prompt, model="llama3-70b-8192"): 
     """Simulate a Groq API call for demonstration purposes"""
     # In a real implementation, this would call the Groq API
     # For this example, we'll return predefined responses based on prompt type
     
-    if "generate comprehensive BDD scenarios" in prompt:
-        # This is an endpoint analysis prompt
+    if "generate comprehensive BDD scenarios" in prompt: # This is an endpoint analysis prompt
+        # Check if the prompt is for user or item features
         if "users" in prompt.lower():
             return generate_user_feature()
         elif "items" in prompt.lower():
@@ -138,8 +138,8 @@ def simulate_groq_api_call(prompt, model="llama3-70b-8192"):
         else:
             return generate_generic_feature()
     
-    elif "Create Python step definitions" in prompt:
-        # This is a step definition prompt
+    elif "Create Python step definitions" in prompt: # This is a step definition prompt
+        # Check if the prompt is for user or item steps
         if "User" in prompt or "user" in prompt:
             return generate_user_steps()
         elif "Item" in prompt or "item" in prompt:
@@ -147,8 +147,8 @@ def simulate_groq_api_call(prompt, model="llama3-70b-8192"):
         else:
             return generate_generic_steps()
     
-    elif "Analyze the following code coverage report" in prompt:
-        # This is a coverage analysis prompt
+    elif "Analyze the following code coverage report" in prompt: # This is a coverage analysis prompt
+        # Generate coverage analysis response
         return generate_coverage_analysis()
     
     # Default response
@@ -663,13 +663,13 @@ def generate_coverage_analysis():
    ```
 """
 
-def extract_api_endpoints():
+def extract_api_endpoints(): 
     """Extract API endpoints from the codebase"""
     endpoints = []
     
     # Walk through the API directory
-    for root, _, files in os.walk(API_DIR):
-        for file in files:
+    for root, _, files in os.walk(API_DIR): 
+        for file in files: 
             if file.endswith('.py') and not file.startswith('__'):
                 file_path = os.path.join(root, file)
                 with open(file_path, 'r') as f:
@@ -682,7 +682,7 @@ def extract_api_endpoints():
     
     return endpoints
 
-def analyze_models():
+def analyze_models(): 
     """Extract model definitions from models.py"""
     if not MODELS_FILE.exists():
         return {}
@@ -731,56 +731,56 @@ def generate_feature_files():
         # Generate step definitions
         generate_step_definitions(output_path, feature_content)
 
-def generate_step_definitions(feature_path, feature_content):
+def generate_step_definitions(feature_path, feature_content): 
     """Generate step definitions for a feature file"""
-    feature_name = os.path.basename(feature_path).replace('.feature', '')
-    print(f"Generating step definitions for: {feature_name}")
+    feature_name = os.path.basename(feature_path).replace('.feature', '') # Get the feature name from the file path
+    print(f"Generating step definitions for: {feature_name}") 
     
     # Create prompt for step definitions
-    prompt = STEP_DEFINITION_PROMPT.format(feature_content=feature_content)
+    prompt = STEP_DEFINITION_PROMPT.format(feature_content=feature_content) # Format the prompt with the feature content
     
     # Call Groq API (simulated)
-    step_content = simulate_groq_api_call(prompt)
+    step_content = simulate_groq_api_call(prompt) # Simulate the API call to get step definitions
     
     # Write step file
-    step_file = STEPS_DIR / f"{feature_name}_steps.py"
+    step_file = STEPS_DIR / f"{feature_name}_steps.py" # Create the step file path based on the feature name
     with open(step_file, 'w') as f:
         f.write(step_content)
     
     print(f"Generated step definition file: {step_file}")
 
-def parse_coverage_xml(xml_path: str) -> List[Dict[str, Any]]:
+def parse_coverage_xml(xml_path: str) -> List[Dict[str, Any]]: # Parse coverage XML report to identify uncovered code paths
     """Parse coverage XML report to identify uncovered code paths"""
     import xml.etree.ElementTree as ET
     
-    if not os.path.exists(xml_path):
+    if not os.path.exists(xml_path): # Check if the coverage XML file exists
         print(f"Coverage report not found at {xml_path}")
         return []
     
     try:
-        tree = ET.parse(xml_path)
-        root = tree.getroot()
+        tree = ET.parse(xml_path) # Parse the XML file 
+        root = tree.getroot() # Get the root element of the XML tree
         
-        uncovered_paths = []
+        uncovered_paths = [] # List to store uncovered paths
         
         # Find all classes with uncovered lines
-        for class_elem in root.findall('.//class'):
-            filename = class_elem.get('filename')
+        for class_elem in root.findall('.//class'): # Iterate through each class element in the XML
+            filename = class_elem.get('filename')  # Get the filename from the class element
             
             # Skip test files and migrations
             if 'test' in filename or 'migration' in filename:
                 continue
                 
             # Find all uncovered lines
-            for line in class_elem.findall('.//line'):
+            for line in class_elem.findall('.//line'): 
                 if line.get('hits') == '0':  # Uncovered line
-                    line_num = int(line.get('number'))
+                    line_num = int(line.get('number')) 
                     
                     # Try to find the function name for this line
-                    function_name = "unknown"
-                    for method in class_elem.findall('.//method'):
-                        start_line = int(method.get('line', '0'))
-                        if start_line <= line_num and start_line > 0:
+                    function_name = "unknown" 
+                    for method in class_elem.findall('.//method'): 
+                        start_line = int(method.get('line', '0'))  
+                        if start_line <= line_num and start_line > 0: # Check if the method starts before the uncovered line
                             function_name = method.get('name', 'unknown')
                     
                     uncovered_paths.append({
@@ -790,7 +790,7 @@ def parse_coverage_xml(xml_path: str) -> List[Dict[str, Any]]:
                     })
         
         return uncovered_paths
-    except Exception as e:
+    except Exception as e: 
         print(f"Error parsing coverage XML: {e}")
         return []
 
@@ -827,7 +827,7 @@ def analyze_coverage(coverage_report: str) -> None:
     
     # Group uncovered paths by file and function
     grouped_paths = {}
-    for path in uncovered_paths:
+    for path in uncovered_paths: 
         key = f"{path['file']}:{path['function']}"
         if key not in grouped_paths:
             grouped_paths[key] = []
@@ -1004,10 +1004,10 @@ def main():
     final_report, final_coverage = run_tests_with_coverage()
     
     print(f"\nBDD test generation complete!")
-    print(f"Initial coverage: {initial_coverage:.2f}%")
-    print(f"Final coverage: {final_coverage:.2f}%")
+    print(f"Initial coverage: {initial_coverage:.2f}%")  
+    print(f"Final coverage: {final_coverage:.2f}%") 
     
-    if final_coverage >= args.target_coverage:
+    if final_coverage >= args.target_coverage: 
         print(f"✅ Target coverage of {args.target_coverage:.2f}% achieved!")
     else:
         print(f"⚠️ Target coverage of {args.target_coverage:.2f}% not reached. Current coverage: {final_coverage:.2f}%")

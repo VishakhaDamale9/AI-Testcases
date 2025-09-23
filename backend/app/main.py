@@ -25,14 +25,14 @@ app = FastAPI(
 )
 
 # Set all CORS enabled origins
-if settings.all_cors_origins:
-    app.add_middleware(
-        CORSMiddleware,
-        allow_origins=settings.all_cors_origins,
-        allow_credentials=True,
-        allow_methods=["*"],
-        allow_headers=["*"],
-    )
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=settings.all_cors_origins if settings.all_cors_origins else ["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+    expose_headers=["Content-Type", "X-Total-Count"],
+)
 
 # Add a root route
 @app.get("/")
@@ -42,6 +42,6 @@ def read_root():
 # favicon route
 @app.get("/favicon.ico")
 def read_favicon():
-    return FileResponse("path/to/your/favicon.ico")
+    return FileResponse("app/static/favicon.ico")
 
 app.include_router(api_router, prefix=settings.API_V1_STR)
