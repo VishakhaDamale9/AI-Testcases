@@ -1,51 +1,185 @@
-Feature: User Management
+Feature: Users API Endpoints
 
-  Scenario: Create a new user
-    Given I am an authenticated superuser
-    When I create a user with email "test@example.com" and password "password123"
-    Then the response status code should be 200
-    And the response should contain the email "test@example.com"
+  Scenario: Unauthenticated user tries to read users
+    Given the API endpoint "/users" is accessible
+    When an unauthenticated user sends a GET request to "/users"
+    Then the API returns a 401 Unauthorized status code
 
-  Scenario: Get user by ID
-    Given I am an authenticated superuser
-    When I get a user by ID "1"
-    Then the response status code should be 200
-    And the response should contain user details
+  Scenario: Unauthenticated user tries to create a user
+    Given the API endpoint "/users" is accessible
+    When an unauthenticated user sends a POST request to "/users" with a valid user
+    Then the API returns a 401 Unauthorized status code
 
-  Scenario: Get non-existent user
-    Given I am an authenticated superuser
-    When I get a user by ID "999"
-    Then the response status code should be 404
+  Scenario: Normal user tries to read users
+    Given the API endpoint "/users" is accessible
+    When a normal user sends a GET request to "/users"
+    Then the API returns a 403 Forbidden status code
 
-  Scenario: Update user
-    Given I am an authenticated superuser
-    When I update a user with ID "1" with new email "updated@example.com"
-    Then the response status code should be 200
-    And the response should contain the email "updated@example.com"
+  Scenario: Normal user tries to create a user
+    Given the API endpoint "/users" is accessible
+    When a normal user sends a POST request to "/users" with a valid user
+    Then the API returns a 403 Forbidden status code
 
-  Scenario: Update user with invalid email
-    Given I am an authenticated superuser
-    When I update a user with ID "1" with new email "invalid-email"
-    Then the response status code should be 422
-    And the response should contain validation errors
+  Scenario: Superuser tries to read users
+    Given the API endpoint "/users" is accessible
+    When a superuser sends a GET request to "/users"
+    Then the API returns a list of users
 
-  Scenario: Delete user
-    Given I am an authenticated superuser
-    When I delete a user with ID "1"
-    Then the response status code should be 200
-    And the user should no longer exist
+  Scenario: Superuser tries to create a user
+    Given the API endpoint "/users" is accessible
+    When a superuser sends a POST request to "/users" with a valid user
+    Then the API returns the created user
 
-  Scenario: Delete non-existent user
-    Given I am an authenticated superuser
-    When I delete a user with ID "999"
-    Then the response status code should be 404
+  Scenario: Superuser tries to update a user
+    Given the API endpoint "/users" is accessible
+    When a superuser sends a PATCH request to "/users/{user_id}" with a valid user
+    Then the API returns the updated user
 
-  Scenario: Access user endpoint without authentication
-    Given I am not authenticated
-    When I get a user by ID "1"
-    Then the response status code should be 401
+  Scenario: Superuser tries to delete a user
+    Given the API endpoint "/users" is accessible
+    When a superuser sends a DELETE request to "/users/{user_id}"
+    Then the API returns a success message
 
-  Scenario: Access user endpoint as non-superuser
-    Given I am an authenticated regular user
-    When I get a user by ID "1"
-    Then the response status code should be 403
+  Scenario: Superuser tries to delete themselves
+    Given the API endpoint "/users" is accessible
+    When a superuser sends a DELETE request to "/users/me"
+    Then the API returns a 403 Forbidden status code
+
+  Scenario: Normal user tries to update their own user
+    Given the API endpoint "/users" is accessible
+    When a normal user sends a PATCH request to "/users/me" with a valid user
+    Then the API returns the updated user
+
+  Scenario: Normal user tries to update their own password
+    Given the API endpoint "/users" is accessible
+    When a normal user sends a PATCH request to "/users/me/password" with a valid password
+    Then the API returns a success message
+
+  Scenario: Normal user tries to delete their own user
+    Given the API endpoint "/users" is accessible
+    When a normal user sends a DELETE request to "/users/me"
+    Then the API returns a success message
+
+  Scenario: Superuser tries to update a non-existent user
+    Given the API endpoint "/users" is accessible
+    When a superuser sends a PATCH request to "/users/{user_id}" with a non-existent user
+    Then the API returns a 404 Not Found status code
+
+  Scenario: Superuser tries to delete a non-existent user
+    Given the API endpoint "/users" is accessible
+    When a superuser sends a DELETE request to "/users/{user_id}"
+    Then the API returns a 404 Not Found status code
+
+  Scenario: Normal user tries to update a non-existent user
+    Given the API endpoint "/users" is accessible
+    When a normal user sends a PATCH request to "/users/{user_id}" with a non-existent user
+    Then the API returns a 403 Forbidden status code
+
+  Scenario: Normal user tries to delete a non-existent user
+    Given the API endpoint "/users" is accessible
+    When a normal user sends a DELETE request to "/users/{user_id}"
+    Then the API returns a 403 Forbidden status code
+
+  Scenario: Superuser tries to update a user with an existing email
+    Given the API endpoint "/users" is accessible
+    When a superuser sends a PATCH request to "/users/{user_id}" with a user having an existing email
+    Then the API returns a 409 Conflict status code
+
+  Scenario: Superuser tries to create a user with an existing email
+    Given the API endpoint "/users" is accessible
+    When a superuser sends a POST request to "/users" with a user having an existing email
+    Then the API returns a 400 Bad Request status code
+
+  Scenario: Normal user tries to update their own user with an existing email
+    Given the API endpoint "/users" is accessible
+    When a normal user sends a PATCH request to "/users/me" with a user having an existing email
+    Then the API returns a 409 Conflict status code
+
+  Scenario: Normal user tries to create a user with an existing email
+    Given the API endpoint "/users" is accessible
+    When a normal user sends a POST request to "/users" with a user having an existing email
+    Then the API returns a 403 Forbidden status code
+
+  Scenario: Superuser tries to read a user by ID
+    Given the API endpoint "/users" is accessible
+    When a superuser sends a GET request to "/users/{user_id}"
+    Then the API returns the user with the given ID
+
+  Scenario: Superuser tries to read a non-existent user by ID
+    Given the API endpoint "/users" is accessible
+    When a superuser sends a GET request to "/users/{user_id}"
+    Then the API returns a 404 Not Found status code
+
+  Scenario: Normal user tries to read a user by ID
+    Given the API endpoint "/users" is accessible
+    When a normal user sends a GET request to "/users/{user_id}"
+    Then the API returns a 403 Forbidden status code
+
+  Scenario: Superuser tries to update a user with invalid data
+    Given the API endpoint "/users" is accessible
+    When a superuser sends a PATCH request to "/users/{user_id}" with invalid data
+    Then the API returns a 400 Bad Request status code
+
+  Scenario: Superuser tries to create a user with invalid data
+    Given the API endpoint "/users" is accessible
+    When a superuser sends a POST request to "/users" with invalid data
+    Then the API returns a 400 Bad Request status code
+
+  Scenario: Normal user tries to update their own user with invalid data
+    Given the API endpoint "/users" is accessible
+    When a normal user sends a PATCH request to "/users/me" with invalid data
+    Then the API returns a 400 Bad Request status code
+
+  Scenario: Normal user tries to create a user with invalid data
+    Given the API endpoint "/users" is accessible
+    When a normal user sends a POST request to "/users" with invalid data
+    Then the API returns a 403 Forbidden status code
+
+  Scenario: Superuser tries to delete a user with invalid data
+    Given the API endpoint "/users" is accessible
+    When a superuser sends a DELETE request to "/users/{user_id}" with invalid data
+    Then the API returns a 400 Bad Request status code
+
+  Scenario: Superuser tries to read users with invalid pagination
+    Given the API endpoint "/users" is accessible
+    When a superuser sends a GET request to "/users" with invalid pagination
+    Then the API returns a 400 Bad Request status code
+
+  Scenario: Superuser tries to create a user with empty email
+    Given the API endpoint "/users" is accessible
+    When a superuser sends a POST request to "/users" with an empty email
+    Then the API returns a 400 Bad Request status code
+
+  Scenario: Superuser tries to create a user with empty password
+    Given the API endpoint "/users" is accessible
+    When a superuser sends a POST request to "/users" with an empty password
+    Then the API returns a 400 Bad Request status code
+
+  Scenario: Superuser tries to update a user with empty email
+    Given the API endpoint "/users" is accessible
+    When a superuser sends a PATCH request to "/users/{user_id}" with an empty email
+    Then the API returns a 400 Bad Request status code
+
+  Scenario: Superuser tries to update a user with empty password
+    Given the API endpoint "/users" is accessible
+    When a superuser sends a PATCH request to "/users/{user_id}" with an empty password
+    Then the API returns a 400 Bad Request status code
+
+  Scenario: Superuser tries to update a user with empty name
+    Given the API endpoint "/users" is accessible
+    When a superuser sends a PATCH request to "/users/{user_id}" with an empty name
+    Then the API returns a 400 Bad Request status code
+
+  Scenario: Superuser tries to update a user with empty surname
+    Given the API endpoint "/users" is accessible
+    When a superuser sends a PATCH request to "/users/{user_id}" with an empty surname
+    Then the API returns a 400 Bad Request status code
+
+  Scenario: Superuser tries to update a user with empty email and password
+    Given the API endpoint "/users" is accessible
+    When a superuser sends a PATCH request to "/users/{user_id}" with an empty email and password
+    Then the API returns a 400 Bad Request status code
+
+  Scenario: Superuser tries to update a user with empty name and surname
+    Given the API endpoint "/users" is accessible
+    When a

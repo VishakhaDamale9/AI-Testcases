@@ -1,91 +1,95 @@
 from behave import given, when, then
 from fastapi.testclient import TestClient
 from app.main import app
-from app.tests.utils.user import authentication_token_from_email
-from app.core.config import settings
+from app.core.security import create_access_token
+from app.api.deps import get_db
+from app import crud, models
 
-client = TestClient(app)
-
-@given('I am an authenticated superuser')
+@given("a valid email address")
 def step_impl(context):
-    context.headers = {
-        "Authorization": f"Bearer {authentication_token_from_email(client=client, email=settings.FIRST_SUPERUSER, db=None)}"
+    context.email = "test@example.com"
+
+@given("a valid full name")
+def step_impl(context):
+    context.full_name = "Test User"
+
+@given("a valid password")
+def step_impl(context):
+    context.password = "password123"
+
+@given("an invalid email address")
+def step_impl(context):
+    context.email = "invalid_email"
+
+@given("an invalid full name")
+def step_impl(context):
+    context.full_name = 123
+
+@given("an invalid password")
+def step_impl(context):
+    context.password = 123
+
+@given("an empty email address")
+def step_impl(context):
+    context.email = ""
+
+@given("an empty full name")
+def step_impl(context):
+    context.full_name = ""
+
+@given("an empty password")
+def step_impl(context):
+    context.password = ""
+
+@given("an invalid token")
+def step_impl(context):
+    context.token = "invalid_token"
+
+@given("a valid token for a superuser")
+def step_impl(context):
+    context.token = create_access_token({"sub": "superuser"})
+
+@when("I send a POST request to \"/private/users/\" with the following JSON body:")
+def step_impl(context):
+    client = TestClient(app)
+    response = client.post("/private/users/", json={
+        "email": context.email,
+        "full_name": context.full_name,
+        "password": context.password,
+        "is_verified": False
+    }, headers={"Authorization": f"Bearer {context.token}"})
+    context.response = response
+
+@then("the response status code should be {status_code}")
+def step_impl(context, status_code):
+    assert context.response.status_code == int(status_code)
+
+@then("the response should contain the following JSON:")
+def step_impl(context):
+    assert context.response.json() == {
+        "email": context.email,
+        "full_name": context.full_name,
+        "is_verified": False
     }
 
-@given('I am an authenticated regular user')
+@then("the response should contain the user ID")
 def step_impl(context):
-    context.headers = {
-        "Authorization": f"Bearer {authentication_token_from_email(client=client, email=settings.EMAIL_TEST_USER, db=None)}"
-    }
+    assert "user_id" in context.response.json()
 
-@given('I am not authenticated')
+@then("the response should contain the error message {error_message}")
+def step_impl(context, error_message):
+    assert error_message in context.response.json()["detail"][0]["msg"]
+
+@when("I send a POST request to \"/private/users/\"")
 def step_impl(context):
-    context.headers = {}
+    client = TestClient(app)
+    response = client.post("/private/users/")
+    context.response = response
 
-@when('I create a user with email "{email}" and password "{password}"')
-def step_impl(context, email, password):
-    context.response = client.post(
-        "/api/v1/users/",
-        headers=context.headers,
-        json={
-            "email": email,
-            "password": password,
-            "is_superuser": False,
-        }
-    )
-
-@when('I get a user by ID "{id}"')
-def step_impl(context, id):
-    context.response = client.get(
-        f"/api/v1/users/{id}",
-        headers=context.headers
-    )
-
-@when('I update a user with ID "{id}" with new email "{email}"')
-def step_impl(context, id, email):
-    context.response = client.put(
-        f"/api/v1/users/{id}",
-        headers=context.headers,
-        json={
-            "email": email,
-            "is_superuser": False,
-        }
-    )
-
-@when('I delete a user with ID "{id}"')
-def step_impl(context, id):
-    context.response = client.delete(
-        f"/api/v1/users/{id}",
-        headers=context.headers
-    )
-
-@then('the response status code should be {code:d}')
-def step_impl(context, code):
-    assert context.response.status_code == code
-
-@then('the response should contain the email "{email}"')
-def step_impl(context, email):
-    data = context.response.json()
-    assert data["email"] == email
-
-@then('the response should contain user details')
+@then("the response status code should be 401")
 def step_impl(context):
-    data = context.response.json()
-    assert "id" in data
-    assert "email" in data
-    assert "is_active" in data
-    assert "is_superuser" in data
+    assert context.response.status_code == 401
 
-@then('the user should no longer exist')
-def step_impl(context):
-    # Try to get the user, should return 404
-    response = client.get(
-        f"/api/v1/users/{context.user_id}",
-        headers=context.headers
-    )
-    assert response.status_code == 404
-
-@then('the response should contain validation errors')
-def step_impl(context):
-    data = context.response.json()
-    assert "detail" in data
+@then("the response should contain the error message {error_message}")
+def step_impl(context, error_message):
+    assert error_message in context.response.json()["detail"][0]["msg"]

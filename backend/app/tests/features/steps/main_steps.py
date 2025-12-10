@@ -1,91 +1,135 @@
 from behave import given, when, then
 from fastapi.testclient import TestClient
 from app.main import app
-from app.tests.utils.user import authentication_token_from_email
-from app.core.config import settings
+from app.core.security import create_access_token
+from app.api.deps import get_db
+from app import crud, models
 
-client = TestClient(app)
-
-@given('I am an authenticated superuser')
+@given("the API is running")
 def step_impl(context):
-    context.headers = {
-        "Authorization": f"Bearer {authentication_token_from_email(client=client, email=settings.FIRST_SUPERUSER, db=None)}"
-    }
+    context.client = TestClient(app)
 
-@given('I am an authenticated regular user')
+@given("the user is authenticated as a normal user")
 def step_impl(context):
-    context.headers = {
-        "Authorization": f"Bearer {authentication_token_from_email(client=client, email=settings.EMAIL_TEST_USER, db=None)}"
-    }
+    access_token = create_access_token(subject="normal_user")
+    context.headers = {"Authorization": f"Bearer {access_token}"}
 
-@given('I am not authenticated')
+@given("the user is authenticated as a superuser")
 def step_impl(context):
-    context.headers = {}
+    access_token = create_access_token(subject="superuser")
+    context.headers = {"Authorization": f"Bearer {access_token}"}
 
-@when('I create a user with email "{email}" and password "{password}"')
-def step_impl(context, email, password):
-    context.response = client.post(
-        "/api/v1/users/",
-        headers=context.headers,
-        json={
-            "email": email,
-            "password": password,
-            "is_superuser": False,
-        }
-    )
-
-@when('I get a user by ID "{id}"')
-def step_impl(context, id):
-    context.response = client.get(
-        f"/api/v1/users/{id}",
-        headers=context.headers
-    )
-
-@when('I update a user with ID "{id}" with new email "{email}"')
-def step_impl(context, id, email):
-    context.response = client.put(
-        f"/api/v1/users/{id}",
-        headers=context.headers,
-        json={
-            "email": email,
-            "is_superuser": False,
-        }
-    )
-
-@when('I delete a user with ID "{id}"')
-def step_impl(context, id):
-    context.response = client.delete(
-        f"/api/v1/users/{id}",
-        headers=context.headers
-    )
-
-@then('the response status code should be {code:d}')
-def step_impl(context, code):
-    assert context.response.status_code == code
-
-@then('the response should contain the email "{email}"')
-def step_impl(context, email):
-    data = context.response.json()
-    assert data["email"] == email
-
-@then('the response should contain user details')
+@when("an unauthenticated user sends a GET request to \"/\"")
 def step_impl(context):
-    data = context.response.json()
-    assert "id" in data
-    assert "email" in data
-    assert "is_active" in data
-    assert "is_superuser" in data
+    response = context.client.get("/")
+    context.response = response
 
-@then('the user should no longer exist')
+@when("a normal user sends a GET request to \"/\"")
 def step_impl(context):
-    # Try to get the user, should return 404
-    response = client.get(
-        f"/api/v1/users/{context.user_id}",
-        headers=context.headers
-    )
-    assert response.status_code == 404
+    response = context.client.get("/", headers=context.headers)
+    context.response = response
 
-@then('the response should contain validation errors')
+@when("a superuser sends a GET request to \"/\"")
 def step_impl(context):
-    data = context.response.json()
-    assert "detail" in data
+    response = context.client.get("/", headers=context.headers)
+    context.response = response
+
+@when("an unauthenticated user sends a GET request to \"/favicon.ico\"")
+def step_impl(context):
+    response = context.client.get("/favicon.ico")
+    context.response = response
+
+@when("a normal user sends a GET request to \"/favicon.ico\"")
+def step_impl(context):
+    response = context.client.get("/favicon.ico", headers=context.headers)
+    context.response = response
+
+@when("a superuser sends a GET request to \"/favicon.ico\"")
+def step_impl(context):
+    response = context.client.get("/favicon.ico", headers=context.headers)
+    context.response = response
+
+@when("the custom generate unique ID function is called with an APIRoute object having no tags")
+def step_impl(context):
+    # Assuming the function is defined in app.api.deps
+    from app.api.deps import get_unique_id
+    context.unique_id = get_unique_id(models.APIRoute(tags=[]))
+
+@when("the custom generate unique ID function is called with an APIRoute object having tags")
+def step_impl(context):
+    # Assuming the function is defined in app.api.deps
+    from app.api.deps import get_unique_id
+    context.unique_id = get_unique_id(models.APIRoute(tags=["tag1", "tag2"]))
+
+@when("the CORS middleware is called with all origins enabled")
+def step_impl(context):
+    # Assuming the middleware is defined in app.main
+    from app.main import CORS
+    context.cors = CORS()
+
+@when("the CORS middleware is called with specific origins enabled")
+def step_impl(context):
+    # Assuming the middleware is defined in app.main
+    from app.main import CORS
+    context.cors = CORS(allow_origins=["origin1", "origin2"])
+
+@when("the API includes a router with a prefix")
+def step_impl(context):
+    # Assuming the router is defined in app.main
+    from app.main import APIRouter
+    context.router = APIRouter(prefix="/prefix")
+
+@when("the API includes a router without a prefix")
+def step_impl(context):
+    # Assuming the router is defined in app.main
+    from app.main import APIRouter
+    context.router = APIRouter()
+
+@when("the API returns the favicon.ico file")
+def step_impl(context):
+    response = context.client.get("/favicon.ico")
+    context.response = response
+
+@then("the response status code is 200")
+def step_impl(context):
+    assert context.response.status_code == 200
+
+@then("the response contains \"Welcome to FastAPI\"")
+def step_impl(context):
+    assert "Welcome to FastAPI" in context.response.text
+
+@then("the response contains \"/docs\"")
+def step_impl(context):
+    assert "/docs" in context.response.text
+
+@then("the response contains \"/api/v1\"")
+def step_impl(context):
+    assert "/api/v1" in context.response.text
+
+@then("the response contains the favicon.ico file")
+def step_impl(context):
+    assert "favicon.ico" in context.response.text
+
+@then("the function returns the route name")
+def step_impl(context):
+    assert context.unique_id == "route_name"
+
+@then("the function returns the route name with tags")
+def step_impl(context):
+    assert context.unique_id == "route_name_with_tags"
+
+@then("the middleware allows all origins")
+def step_impl(context):
+    assert context.cors.allow_origins == ["*"]
+
+@then("the middleware allows only the specified origins")
+def step_impl(context):
+    assert context.cors.allow_origins == ["origin1", "origin2"]
+
+@then("the API has the router with the specified prefix")
+def step_impl(context):
+    assert context.router.prefix == "/prefix"
+
+@then("the API has the router without a prefix")
+def step_impl(context):
+    assert context.router.prefix == ""

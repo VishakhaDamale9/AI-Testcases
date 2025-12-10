@@ -1,91 +1,138 @@
 from behave import given, when, then
 from fastapi.testclient import TestClient
 from app.main import app
-from app.tests.utils.user import authentication_token_from_email
-from app.core.config import settings
+from app.core.security import create_access_token
+from app.api.deps import get_db
+from app import crud, models
 
-client = TestClient(app)
-
-@given('I am an authenticated superuser')
+@given('the user is not authenticated')
 def step_impl(context):
-    context.headers = {
-        "Authorization": f"Bearer {authentication_token_from_email(client=client, email=settings.FIRST_SUPERUSER, db=None)}"
-    }
+    context.client = TestClient(app)
 
-@given('I am an authenticated regular user')
+@given('the user is authenticated as a normal user')
 def step_impl(context):
-    context.headers = {
-        "Authorization": f"Bearer {authentication_token_from_email(client=client, email=settings.EMAIL_TEST_USER, db=None)}"
-    }
+    user = models.User(name='normal_user', email='normal_user@example.com', is_active=True, is_superuser=False)
+    db = next(get_db())
+    crud.user.create(db, obj_in=user)
+    token = create_access_token(data={'sub': user.id})
+    context.headers = {'Authorization': f'Bearer {token}'}
 
-@given('I am not authenticated')
+@given('the user is authenticated as a superuser')
 def step_impl(context):
-    context.headers = {}
+    user = models.User(name='superuser', email='superuser@example.com', is_active=True, is_superuser=True)
+    db = next(get_db())
+    crud.user.create(db, obj_in=user)
+    token = create_access_token(data={'sub': user.id})
+    context.headers = {'Authorization': f'Bearer {token}'}
 
-@when('I create a user with email "{email}" and password "{password}"')
-def step_impl(context, email, password):
-    context.response = client.post(
-        "/api/v1/users/",
-        headers=context.headers,
-        json={
-            "email": email,
-            "password": password,
-            "is_superuser": False,
-        }
-    )
-
-@when('I get a user by ID "{id}"')
-def step_impl(context, id):
-    context.response = client.get(
-        f"/api/v1/users/{id}",
-        headers=context.headers
-    )
-
-@when('I update a user with ID "{id}" with new email "{email}"')
-def step_impl(context, id, email):
-    context.response = client.put(
-        f"/api/v1/users/{id}",
-        headers=context.headers,
-        json={
-            "email": email,
-            "is_superuser": False,
-        }
-    )
-
-@when('I delete a user with ID "{id}"')
-def step_impl(context, id):
-    context.response = client.delete(
-        f"/api/v1/users/{id}",
-        headers=context.headers
-    )
-
-@then('the response status code should be {code:d}')
-def step_impl(context, code):
-    assert context.response.status_code == code
-
-@then('the response should contain the email "{email}"')
-def step_impl(context, email):
-    data = context.response.json()
-    assert data["email"] == email
-
-@then('the response should contain user details')
+@given('the user is authenticated with an invalid token')
 def step_impl(context):
-    data = context.response.json()
-    assert "id" in data
-    assert "email" in data
-    assert "is_active" in data
-    assert "is_superuser" in data
+    context.headers = {'Authorization': 'Bearer invalid_token'}
 
-@then('the user should no longer exist')
+@given('the user is authenticated with an expired token')
 def step_impl(context):
-    # Try to get the user, should return 404
-    response = client.get(
-        f"/api/v1/users/{context.user_id}",
-        headers=context.headers
-    )
-    assert response.status_code == 404
+    user = models.User(name='normal_user', email='normal_user@example.com', is_active=True, is_superuser=False)
+    db = next(get_db())
+    crud.user.create(db, obj_in=user)
+    token = create_access_token(data={'sub': user.id}, expires_delta=-1)
+    context.headers = {'Authorization': f'Bearer {token}'}
 
-@then('the response should contain validation errors')
+@given('the user is authenticated with a blacklisted token')
 def step_impl(context):
-    data = context.response.json()
-    assert "detail" in data
+    user = models.User(name='normal_user', email='normal_user@example.com', is_active=True, is_superuser=False)
+    db = next(get_db())
+    crud.user.create(db, obj_in=user)
+    token = create_access_token(data={'sub': user.id})
+    crud.token.blacklist(db, obj_in={'token': token})
+    context.headers = {'Authorization': f'Bearer {token}'}
+
+@given('the user is authenticated with a revoked token')
+def step_impl(context):
+    user = models.User(name='normal_user', email='normal_user@example.com', is_active=True, is_superuser=False)
+    db = next(get_db())
+    crud.user.create(db, obj_in=user)
+    token = create_access_token(data={'sub': user.id})
+    crud.token.revoke(db, obj_in={'token': token})
+    context.headers = {'Authorization': f'Bearer {token}'}
+
+@given('the user is authenticated with a token issued for a different user')
+def step_impl(context):
+    user = models.User(name='different_user', email='different_user@example.com', is_active=True, is_superuser=False)
+    db = next(get_db())
+    crud.user.create(db, obj_in=user)
+    token = create_access_token(data={'sub': user.id})
+    context.headers = {'Authorization': f'Bearer {token}'}
+
+@given('the user is authenticated with an empty token')
+def step_impl(context):
+    context.headers = {'Authorization': 'Bearer '}
+
+@given('the user is authenticated with a token that contains invalid characters')
+def step_impl(context):
+    context.headers = {'Authorization': 'Bearer invalid_token'}
+
+@given('the user is authenticated with a tampered token')
+def step_impl(context):
+    user = models.User(name='normal_user', email='normal_user@example.com', is_active=True, is_superuser=False)
+    db = next(get_db())
+    crud.user.create(db, obj_in=user)
+    token = create_access_token(data={'sub': user.id})
+    context.headers = {'Authorization': f'Bearer {token}'}
+
+@given('the user is authenticated with a token that has expired due to a clock skew')
+def step_impl(context):
+    user = models.User(name='normal_user', email='normal_user@example.com', is_active=True, is_superuser=False)
+    db = next(get_db())
+    crud.user.create(db, obj_in=user)
+    token = create_access_token(data={'sub': user.id}, expires_delta=-1)
+    context.headers = {'Authorization': f'Bearer {token}'}
+
+@given('the user is authenticated with a token issued for a user who is not active')
+def step_impl(context):
+    user = models.User(name='normal_user', email='normal_user@example.com', is_active=False, is_superuser=False)
+    db = next(get_db())
+    crud.user.create(db, obj_in=user)
+    token = create_access_token(data={'sub': user.id})
+    context.headers = {'Authorization': f'Bearer {token}'}
+
+@given('the user is authenticated with a token issued for a user who is inactive')
+def step_impl(context):
+    user = models.User(name='normal_user', email='normal_user@example.com', is_active=False, is_superuser=False)
+    db = next(get_db())
+    crud.user.create(db, obj_in=user)
+    token = create_access_token(data={'sub': user.id})
+    context.headers = {'Authorization': f'Bearer {token}'}
+
+@given('the user is authenticated as a superuser with a token issued for a user who is not a superuser')
+def step_impl(context):
+    user = models.User(name='normal_user', email='normal_user@example.com', is_active=True, is_superuser=False)
+    db = next(get_db())
+    crud.user.create(db, obj_in=user)
+    token = create_access_token(data={'sub': user.id})
+    context.headers = {'Authorization': f'Bearer {token}'}
+
+@given('the user is authenticated as a superuser with a token issued for a user who is a superuser')
+def step_impl(context):
+    user = models.User(name='superuser', email='superuser@example.com', is_active=True, is_superuser=True)
+    db = next(get_db())
+    crud.user.create(db, obj_in=user)
+    token = create_access_token(data={'sub': user.id})
+    context.headers = {'Authorization': f'Bearer {token}'}
+
+@when('the user tries to access a protected endpoint')
+def step_impl(context):
+    response = context.client.get('/protected')
+    context.response = response
+
+@then('the API returns a 403 Forbidden status code')
+def step_impl(context):
+    assert context.response.status_code == 403
+
+@then('the API returns a 200 OK status code with the user\'s details')
+def step_impl(context):
+    assert context.response.status_code == 200
+    assert context.response.json()['name'] == 'superuser'
+
+@then('the API returns a 400 Bad Request status code')
+def step_impl(context):
+    assert context.response.status_code == 400

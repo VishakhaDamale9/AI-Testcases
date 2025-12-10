@@ -1,14 +1,5 @@
 #!/usr/bin/env python
-"""
-Coverage Gap Analysis Script
 
-This script analyzes the current test coverage and identifies gaps that need to be addressed
-to achieve 100% coverage. It parses the coverage XML report and outputs a list of uncovered
-lines and functions, grouped by file.
-
-Usage:
-    python analyze_coverage_gaps.py [--coverage-xml PATH] [--exclude-patterns PATTERNS]
-"""
 
 import os
 import sys
@@ -103,7 +94,8 @@ def analyze_coverage_xml(coverage_xml_path, exclude_patterns):
                     continue
                 
                 # Get file content for function name extraction
-                file_path = os.path.join(os.path.dirname(coverage_xml_path), '..', filename)
+                # coverage.xml paths are relative to backend/app, so prepend that path
+                file_path = os.path.join('backend', 'app', filename)
                 file_content = read_file_content(file_path)
                 
                 for line in class_elem.findall('.//line'):

@@ -1,91 +1,97 @@
 from behave import given, when, then
 from fastapi.testclient import TestClient
 from app.main import app
-from app.tests.utils.user import authentication_token_from_email
-from app.core.config import settings
+from app.core.security import create_access_token
+from app.api.deps import get_db
+from app import crud, models
 
-client = TestClient(app)
-
-@given('I am an authenticated superuser')
-def step_impl(context):
-    context.headers = {
-        "Authorization": f"Bearer {authentication_token_from_email(client=client, email=settings.FIRST_SUPERUSER, db=None)}"
-    }
-
-@given('I am an authenticated regular user')
-def step_impl(context):
-    context.headers = {
-        "Authorization": f"Bearer {authentication_token_from_email(client=client, email=settings.EMAIL_TEST_USER, db=None)}"
-    }
-
-@given('I am not authenticated')
-def step_impl(context):
-    context.headers = {}
-
-@when('I create a user with email "{email}" and password "{password}"')
+@given('an existing user with email "{email}" and password "{password}"')
 def step_impl(context, email, password):
-    context.response = client.post(
-        "/api/v1/users/",
-        headers=context.headers,
-        json={
-            "email": email,
-            "password": password,
-            "is_superuser": False,
-        }
-    )
+    context.user = crud.user.create(db=get_db(), obj_in=models.UserCreate(email=email, password=password))
 
-@when('I get a user by ID "{id}"')
-def step_impl(context, id):
-    context.response = client.get(
-        f"/api/v1/users/{id}",
-        headers=context.headers
-    )
+@given('an existing inactive user with email "{email}" and password "{password}"')
+def step_impl(context, email, password):
+    context.user = crud.user.create(db=get_db(), obj_in=models.UserCreate(email=email, password=password))
+    crud.user.update(db=get_db(), db_obj=context.user, obj_in=models.UserUpdate(is_active=False))
 
-@when('I update a user with ID "{id}" with new email "{email}"')
-def step_impl(context, id, email):
-    context.response = client.put(
-        f"/api/v1/users/{id}",
-        headers=context.headers,
-        json={
-            "email": email,
-            "is_superuser": False,
-        }
-    )
-
-@when('I delete a user with ID "{id}"')
-def step_impl(context, id):
-    context.response = client.delete(
-        f"/api/v1/users/{id}",
-        headers=context.headers
-    )
-
-@then('the response status code should be {code:d}')
-def step_impl(context, code):
-    assert context.response.status_code == code
-
-@then('the response should contain the email "{email}"')
+@given('a non-existent user with email "{email}"')
 def step_impl(context, email):
-    data = context.response.json()
-    assert data["email"] == email
+    context.user = None
 
-@then('the response should contain user details')
-def step_impl(context):
-    data = context.response.json()
-    assert "id" in data
-    assert "email" in data
-    assert "is_active" in data
-    assert "is_superuser" in data
+@given('an existing user with email "{email}" and password "{password}" as a superuser')
+def step_impl(context, email, password):
+    context.user = crud.user.create(db=get_db(), obj_in=models.UserCreate(email=email, password=password))
 
-@then('the user should no longer exist')
-def step_impl(context):
-    # Try to get the user, should return 404
-    response = client.get(
-        f"/api/v1/users/{context.user_id}",
-        headers=context.headers
-    )
-    assert response.status_code == 404
+@given('a non-existent user with email "{email}" as a superuser')
+def step_impl(context, email):
+    context.user = None
 
-@then('the response should contain validation errors')
+@when('I send a POST request to "/login/access-token" with email "{email}" and password "{password}"')
+def step_impl(context, email, password):
+    if email is None or password is None:
+        context.response = TestClient(app).post('/login/access-token', json={'email': email, 'password': password})
+    else:
+        context.response = TestClient(app).post('/login/access-token', json={'email': email, 'password': password})
+
+@when('I send a POST request to "/login/access-token" as a superuser')
 def step_impl(context):
-    data = context.response.json()
-    assert "detail" in data
+    context.response = TestClient(app).post('/login/access-token', headers={'Authorization': 'Bearer superuser'})
+
+@when('I send a POST request to "/login/test-token" with access token "{access_token}"')
+def step_impl(context, access_token):
+    if access_token is None or access_token == '':
+        context.response = TestClient(app).post('/login/test-token', headers={'Authorization': 'Bearer ' + access_token})
+    else:
+        context.response = TestClient(app).post('/login/test-token', headers={'Authorization': 'Bearer ' + access_token})
+
+@when('I send a POST request to "/login/test-token" with access token "{access_token}" as a superuser')
+def step_impl(context, access_token):
+    if access_token is None or access_token == '':
+        context.response = TestClient(app).post('/login/test-token', headers={'Authorization': 'Bearer ' + access_token})
+    else:
+        context.response = TestClient(app).post('/login/test-token', headers={'Authorization': 'Bearer ' + access_token})
+
+@when('I send a POST request to "/password-recovery/{email}"')
+def step_impl(context, email):
+    context.response = TestClient(app).post('/password-recovery/' + email)
+
+@when('I send a POST request to "/password-recovery/{email}" as a superuser')
+def step_impl(context, email):
+    context.response = TestClient(app).post('/password-recovery/' + email, headers={'Authorization': 'Bearer superuser'})
+
+@when('I send a POST request to "/password-recovery-html-content/{email}" as a superuser')
+def step_impl(context, email):
+    context.response = TestClient(app).post('/password-recovery-html-content/' + email, headers={'Authorization': 'Bearer superuser'})
+
+@when('I send a POST request to "/reset-password/" with new password "{new_password}" and access token "{access_token}"')
+def step_impl(context, new_password, access_token):
+    if access_token is None or access_token == '':
+        context.response = TestClient(app).post('/reset-password/', json={'new_password': new_password})
+    else:
+        context.response = TestClient(app).post('/reset-password/', json={'new_password': new_password, 'access_token': access_token})
+
+@then('the response status code is {status_code}')
+def step_impl(context, status_code):
+    assert context.response.status_code == int(status_code)
+
+@then('the response contains an access token')
+def step_impl(context):
+    assert 'access_token' in context.response.json()
+
+@then('the response contains the error message "{error_message}"')
+def step_impl(context, error_message):
+    assert context.response.json()['error'] == error_message
+
+@then('the response contains a message indicating that the password recovery email was sent')
+def step_impl(context):
+    assert 'Password recovery email sent' in context.response.json()['message']
+
+@then('the response contains the user\'s public information')
+def step_impl(context):
+    assert 'email' in context.response.json()
+    assert 'id' in context.response.json()
+    assert 'is_active' in context.response.json()
+
+@then('the response contains the HTML content for password recovery')
+def step_impl(context):
+    assert 'password_recovery_html' in context.response.json()

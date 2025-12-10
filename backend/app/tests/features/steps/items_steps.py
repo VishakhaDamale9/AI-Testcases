@@ -1,91 +1,120 @@
 from behave import given, when, then
 from fastapi.testclient import TestClient
 from app.main import app
-from app.tests.utils.user import authentication_token_from_email
-from app.core.config import settings
+from app.core.security import create_access_token
+from app.api.deps import get_db
+from app import crud, models
 
-client = TestClient(app)
+@given("the API endpoint {endpoint} is accessed without authentication")
+def step_impl(context, endpoint):
+    client = TestClient(app)
+    context.response = client.get(endpoint)
 
-@given('I am an authenticated superuser')
+@given("the API endpoint {endpoint} is accessed with normal user authentication")
+def step_impl(context, endpoint):
+    client = TestClient(app)
+    user = crud.user.get(db=get_db(), id=1)
+    access_token = create_access_token(subject=user.id)
+    context.headers = {"Authorization": f"Bearer {access_token}"}
+    context.response = client.get(endpoint, headers=context.headers)
+
+@given("the API endpoint {endpoint} is accessed with superuser authentication")
+def step_impl(context, endpoint):
+    client = TestClient(app)
+    user = crud.user.get(db=get_db(), id=1)
+    access_token = create_access_token(subject=user.id, scopes=["superuser"])
+    context.headers = {"Authorization": f"Bearer {access_token}"}
+    context.response = client.get(endpoint, headers=context.headers)
+
+@when("the GET request is made")
 def step_impl(context):
-    context.headers = {
-        "Authorization": f"Bearer {authentication_token_from_email(client=client, email=settings.FIRST_SUPERUSER, db=None)}"
-    }
+    client = TestClient(app)
+    context.response = client.get(context.endpoint)
 
-@given('I am an authenticated regular user')
+@when("the GET request is made with a valid item ID")
 def step_impl(context):
-    context.headers = {
-        "Authorization": f"Bearer {authentication_token_from_email(client=client, email=settings.EMAIL_TEST_USER, db=None)}"
-    }
+    client = TestClient(app)
+    item = crud.item.get(db=get_db(), id=1)
+    context.response = client.get(f"/items/{item.id}", headers=context.headers)
 
-@given('I am not authenticated')
+@when("the GET request is made with an invalid item ID")
 def step_impl(context):
-    context.headers = {}
+    client = TestClient(app)
+    context.response = client.get(f"/items/999", headers=context.headers)
 
-@when('I create a user with email "{email}" and password "{password}"')
-def step_impl(context, email, password):
-    context.response = client.post(
-        "/api/v1/users/",
-        headers=context.headers,
-        json={
-            "email": email,
-            "password": password,
-            "is_superuser": False,
-        }
-    )
-
-@when('I get a user by ID "{id}"')
-def step_impl(context, id):
-    context.response = client.get(
-        f"/api/v1/users/{id}",
-        headers=context.headers
-    )
-
-@when('I update a user with ID "{id}" with new email "{email}"')
-def step_impl(context, id, email):
-    context.response = client.put(
-        f"/api/v1/users/{id}",
-        headers=context.headers,
-        json={
-            "email": email,
-            "is_superuser": False,
-        }
-    )
-
-@when('I delete a user with ID "{id}"')
-def step_impl(context, id):
-    context.response = client.delete(
-        f"/api/v1/users/{id}",
-        headers=context.headers
-    )
-
-@then('the response status code should be {code:d}')
-def step_impl(context, code):
-    assert context.response.status_code == code
-
-@then('the response should contain the email "{email}"')
-def step_impl(context, email):
-    data = context.response.json()
-    assert data["email"] == email
-
-@then('the response should contain user details')
+@when("the POST request is made with valid item data")
 def step_impl(context):
-    data = context.response.json()
-    assert "id" in data
-    assert "email" in data
-    assert "is_active" in data
-    assert "is_superuser" in data
+    client = TestClient(app)
+    item_data = {"name": "Test Item", "description": "Test item description"}
+    context.response = client.post("/items", headers=context.headers, json=item_data)
 
-@then('the user should no longer exist')
+@when("the POST request is made with item data missing a required field")
 def step_impl(context):
-    # Try to get the user, should return 404
-    response = client.get(
-        f"/api/v1/users/{context.user_id}",
-        headers=context.headers
-    )
-    assert response.status_code == 404
+    client = TestClient(app)
+    item_data = {"name": "Test Item"}
+    context.response = client.post("/items", headers=context.headers, json=item_data)
 
-@then('the response should contain validation errors')
+@when("the PUT request is made with valid item data")
 def step_impl(context):
-    data = context.response.json()
-    assert "detail" in data
+    client = TestClient(app)
+    item = crud.item.get(db=get_db(), id=1)
+    item_data = {"name": "Updated Test Item", "description": "Updated test item description"}
+    context.response = client.put(f"/items/{item.id}", headers=context.headers, json=item_data)
+
+@when("the PUT request is made with an invalid item ID")
+def step_impl(context):
+    client = TestClient(app)
+    context.response = client.put("/items/999", headers=context.headers, json={"name": "Test Item"})
+
+@when("the DELETE request is made with a valid item ID")
+def step_impl(context):
+    client = TestClient(app)
+    item = crud.item.get(db=get_db(), id=1)
+    context.response = client.delete(f"/items/{item.id}", headers=context.headers)
+
+@when("the DELETE request is made with an invalid item ID")
+def step_impl(context):
+    client = TestClient(app)
+    context.response = client.delete("/items/999", headers=context.headers)
+
+@then("a 401 Unauthorized response is returned")
+def step_impl(context):
+    assert context.response.status_code == 401
+
+@then("a list of items is returned")
+def step_impl(context):
+    assert context.response.status_code == 200
+    assert len(context.response.json()) > 0
+
+@then("a list of all items is returned")
+def step_impl(context):
+    assert context.response.status_code == 200
+    assert len(context.response.json()) > 0
+
+@then("the item is returned")
+def step_impl(context):
+    assert context.response.status_code == 200
+    assert context.response.json()["id"] == 1
+
+@then("a 404 Not Found response is returned")
+def step_impl(context):
+    assert context.response.status_code == 404
+
+@then("the item is created and returned")
+def step_impl(context):
+    assert context.response.status_code == 201
+    assert context.response.json()["id"] == 2
+
+@then("a 422 Unprocessable Entity response is returned")
+def step_impl(context):
+    assert context.response.status_code == 422
+
+@then("the item is updated and returned")
+def step_impl(context):
+    assert context.response.status_code == 200
+    assert context.response.json()["id"] == 1
+
+@then("the item is deleted and a success message is returned")
+def step_impl(context):
+    assert context.response.status_code == 200
+    assert context.response.json()["message"] == "Item deleted successfully"

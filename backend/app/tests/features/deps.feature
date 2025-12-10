@@ -1,23 +1,81 @@
-Feature: API Endpoint
+Feature: Authentication and Authorization
 
-  Scenario: Successful request
-    Given I am an authenticated user
-    When I make a request to the endpoint
-    Then the response status code should be 200
-    And the response should contain expected data
+  Scenario: Unauthenticated user tries to access a protected endpoint
+    Given the user is not authenticated
+    When the user tries to access a protected endpoint
+    Then the API returns a 403 Forbidden status code
 
-  Scenario: Unauthorized request
-    Given I am not authenticated
-    When I make a request to the endpoint
-    Then the response status code should be 401
+  Scenario: Normal user tries to access a protected endpoint
+    Given the user is authenticated as a normal user
+    When the user tries to access a protected endpoint
+    Then the API returns a 200 OK status code with the user's details
 
-  Scenario: Validation error
-    Given I am an authenticated user
-    When I make a request with invalid data
-    Then the response status code should be 422
-    And the response should contain validation errors
+  Scenario: Superuser tries to access a protected endpoint
+    Given the user is authenticated as a superuser
+    When the user tries to access a protected endpoint
+    Then the API returns a 200 OK status code with the user's details
 
-  Scenario: Not found error
-    Given I am an authenticated user
-    When I make a request for a non-existent resource
-    Then the response status code should be 404
+  Scenario: User tries to access a protected endpoint with an invalid token
+    Given the user is authenticated with an invalid token
+    When the user tries to access a protected endpoint
+    Then the API returns a 403 Forbidden status code
+
+  Scenario: User tries to access a protected endpoint with an expired token
+    Given the user is authenticated with an expired token
+    When the user tries to access a protected endpoint
+    Then the API returns a 403 Forbidden status code
+
+  Scenario: User tries to access a protected endpoint with a token that has been blacklisted
+    Given the user is authenticated with a blacklisted token
+    When the user tries to access a protected endpoint
+    Then the API returns a 403 Forbidden status code
+
+  Scenario: User tries to access a protected endpoint with a token that has been revoked
+    Given the user is authenticated with a revoked token
+    When the user tries to access a protected endpoint
+    Then the API returns a 403 Forbidden status code
+
+  Scenario: User tries to access a protected endpoint with a token that has been issued for a different user
+    Given the user is authenticated with a token issued for a different user
+    When the user tries to access a protected endpoint
+    Then the API returns a 403 Forbidden status code
+
+  Scenario: User tries to access a protected endpoint with an empty token
+    Given the user is authenticated with an empty token
+    When the user tries to access a protected endpoint
+    Then the API returns a 403 Forbidden status code
+
+  Scenario: User tries to access a protected endpoint with a token that contains invalid characters
+    Given the user is authenticated with a token that contains invalid characters
+    When the user tries to access a protected endpoint
+    Then the API returns a 403 Forbidden status code
+
+  Scenario: User tries to access a protected endpoint with a token that has been tampered with
+    Given the user is authenticated with a tampered token
+    When the user tries to access a protected endpoint
+    Then the API returns a 403 Forbidden status code
+
+  Scenario: User tries to access a protected endpoint with a token that has expired due to a clock skew
+    Given the user is authenticated with a token that has expired due to a clock skew
+    When the user tries to access a protected endpoint
+    Then the API returns a 403 Forbidden status code
+
+  Scenario: User tries to access a protected endpoint with a token that has been issued for a user who is not active
+    Given the user is authenticated with a token issued for a user who is not active
+    When the user tries to access a protected endpoint
+    Then the API returns a 400 Bad Request status code
+
+  Scenario: User tries to access a protected endpoint with a token that has been issued for a user who is inactive
+    Given the user is authenticated with a token issued for a user who is inactive
+    When the user tries to access a protected endpoint
+    Then the API returns a 400 Bad Request status code
+
+  Scenario: Superuser tries to access a protected endpoint with a token that has been issued for a user who is not a superuser
+    Given the user is authenticated as a superuser with a token issued for a user who is not a superuser
+    When the user tries to access a protected endpoint
+    Then the API returns a 403 Forbidden status code
+
+  Scenario: Superuser tries to access a protected endpoint with a token that has been issued for a user who is a superuser
+    Given the user is authenticated as a superuser with a token issued for a user who is a superuser
+    When the user tries to access a protected endpoint
+    Then the API returns a 200 OK status code with the user's details

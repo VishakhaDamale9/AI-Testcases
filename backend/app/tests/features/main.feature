@@ -1,51 +1,83 @@
-Feature: User Management
+Feature: Root API Endpoint
 
-  Scenario: Create a new user
-    Given I am an authenticated superuser
-    When I create a user with email "test@example.com" and password "password123"
-    Then the response status code should be 200
-    And the response should contain the email "test@example.com"
+  Scenario: Unauthenticated user visits root endpoint
+    Given the API is running
+    When an unauthenticated user sends a GET request to "/"
+    Then the response status code is 200
+    And the response contains "Welcome to FastAPI"
+    And the response contains "/docs"
+    And the response contains "/api/v1"
 
-  Scenario: Get user by ID
-    Given I am an authenticated superuser
-    When I get a user by ID "1"
-    Then the response status code should be 200
-    And the response should contain user details
+  Scenario: Normal user visits root endpoint
+    Given the API is running
+    And the user is authenticated as a normal user
+    When a normal user sends a GET request to "/"
+    Then the response status code is 200
+    And the response contains "Welcome to FastAPI"
+    And the response contains "/docs"
+    And the response contains "/api/v1"
 
-  Scenario: Get non-existent user
-    Given I am an authenticated superuser
-    When I get a user by ID "999"
-    Then the response status code should be 404
+  Scenario: Superuser visits root endpoint
+    Given the API is running
+    And the user is authenticated as a superuser
+    When a superuser sends a GET request to "/"
+    Then the response status code is 200
+    And the response contains "Welcome to FastAPI"
+    And the response contains "/docs"
+    And the response contains "/api/v1"
 
-  Scenario: Update user
-    Given I am an authenticated superuser
-    When I update a user with ID "1" with new email "updated@example.com"
-    Then the response status code should be 200
-    And the response should contain the email "updated@example.com"
+  Scenario: Unauthenticated user visits favicon endpoint
+    Given the API is running
+    When an unauthenticated user sends a GET request to "/favicon.ico"
+    Then the response status code is 200
+    And the response contains the favicon.ico file
 
-  Scenario: Update user with invalid email
-    Given I am an authenticated superuser
-    When I update a user with ID "1" with new email "invalid-email"
-    Then the response status code should be 422
-    And the response should contain validation errors
+  Scenario: Normal user visits favicon endpoint
+    Given the API is running
+    And the user is authenticated as a normal user
+    When a normal user sends a GET request to "/favicon.ico"
+    Then the response status code is 200
+    And the response contains the favicon.ico file
 
-  Scenario: Delete user
-    Given I am an authenticated superuser
-    When I delete a user with ID "1"
-    Then the response status code should be 200
-    And the user should no longer exist
+  Scenario: Superuser visits favicon endpoint
+    Given the API is running
+    And the user is authenticated as a superuser
+    When a superuser sends a GET request to "/favicon.ico"
+    Then the response status code is 200
+    And the response contains the favicon.ico file
 
-  Scenario: Delete non-existent user
-    Given I am an authenticated superuser
-    When I delete a user with ID "999"
-    Then the response status code should be 404
+  Scenario: Custom generate unique ID function returns route name
+    Given the API is running
+    When the custom generate unique ID function is called with an APIRoute object having no tags
+    Then the function returns the route name
 
-  Scenario: Access user endpoint without authentication
-    Given I am not authenticated
-    When I get a user by ID "1"
-    Then the response status code should be 401
+  Scenario: Custom generate unique ID function returns route name with tags
+    Given the API is running
+    When the custom generate unique ID function is called with an APIRoute object having tags
+    Then the function returns the route name with tags
 
-  Scenario: Access user endpoint as non-superuser
-    Given I am an authenticated regular user
-    When I get a user by ID "1"
-    Then the response status code should be 403
+  Scenario: CORS is enabled for all origins
+    Given the API is running
+    When the CORS middleware is called with all origins enabled
+    Then the middleware allows all origins
+
+  Scenario: CORS is enabled for specific origins
+    Given the API is running
+    When the CORS middleware is called with specific origins enabled
+    Then the middleware allows only the specified origins
+
+  Scenario: API includes router with prefix
+    Given the API is running
+    When the API includes a router with a prefix
+    Then the API has the router with the specified prefix
+
+  Scenario: API includes router without prefix
+    Given the API is running
+    When the API includes a router without a prefix
+    Then the API has the router without a prefix
+
+  Scenario: API returns favicon.ico file
+    Given the API is running
+    When the API returns the favicon.ico file
+    Then the response status code is 200
+    And the response contains the favicon.ico file

@@ -1,91 +1,214 @@
 from behave import given, when, then
 from fastapi.testclient import TestClient
 from app.main import app
-from app.tests.utils.user import authentication_token_from_email
-from app.core.config import settings
+from app.core.security import create_access_token
+from app.api.deps import get_db
+from app import crud, models
 
-client = TestClient(app)
-
-@given('I am an authenticated superuser')
+@given("the API endpoint \"/users\" is accessible")
 def step_impl(context):
-    context.headers = {
-        "Authorization": f"Bearer {authentication_token_from_email(client=client, email=settings.FIRST_SUPERUSER, db=None)}"
-    }
+    client = TestClient(app)
+    response = client.get("/users")
+    assert response.status_code == 200
 
-@given('I am an authenticated regular user')
+@when("an unauthenticated user sends a GET request to \"/users\"")
 def step_impl(context):
-    context.headers = {
-        "Authorization": f"Bearer {authentication_token_from_email(client=client, email=settings.EMAIL_TEST_USER, db=None)}"
-    }
+    client = TestClient(app)
+    response = client.get("/users")
+    assert response.status_code == 401
 
-@given('I am not authenticated')
+@then("the API returns a 401 Unauthorized status code")
 def step_impl(context):
-    context.headers = {}
+    client = TestClient(app)
+    response = client.get("/users")
+    assert response.status_code == 401
 
-@when('I create a user with email "{email}" and password "{password}"')
-def step_impl(context, email, password):
-    context.response = client.post(
-        "/api/v1/users/",
-        headers=context.headers,
-        json={
-            "email": email,
-            "password": password,
-            "is_superuser": False,
-        }
-    )
-
-@when('I get a user by ID "{id}"')
-def step_impl(context, id):
-    context.response = client.get(
-        f"/api/v1/users/{id}",
-        headers=context.headers
-    )
-
-@when('I update a user with ID "{id}" with new email "{email}"')
-def step_impl(context, id, email):
-    context.response = client.put(
-        f"/api/v1/users/{id}",
-        headers=context.headers,
-        json={
-            "email": email,
-            "is_superuser": False,
-        }
-    )
-
-@when('I delete a user with ID "{id}"')
-def step_impl(context, id):
-    context.response = client.delete(
-        f"/api/v1/users/{id}",
-        headers=context.headers
-    )
-
-@then('the response status code should be {code:d}')
-def step_impl(context, code):
-    assert context.response.status_code == code
-
-@then('the response should contain the email "{email}"')
-def step_impl(context, email):
-    data = context.response.json()
-    assert data["email"] == email
-
-@then('the response should contain user details')
+@when("an unauthenticated user sends a POST request to \"/users\" with a valid user")
 def step_impl(context):
-    data = context.response.json()
-    assert "id" in data
-    assert "email" in data
-    assert "is_active" in data
-    assert "is_superuser" in data
+    client = TestClient(app)
+    user = {"email": "user@example.com", "password": "password"}
+    response = client.post("/users", json=user)
+    assert response.status_code == 401
 
-@then('the user should no longer exist')
+@then("the API returns a 401 Unauthorized status code")
 def step_impl(context):
-    # Try to get the user, should return 404
-    response = client.get(
-        f"/api/v1/users/{context.user_id}",
-        headers=context.headers
-    )
-    assert response.status_code == 404
+    client = TestClient(app)
+    response = client.post("/users", json={"email": "user@example.com", "password": "password"})
+    assert response.status_code == 401
 
-@then('the response should contain validation errors')
+@when("a normal user sends a GET request to \"/users\"")
 def step_impl(context):
-    data = context.response.json()
-    assert "detail" in data
+    client = TestClient(app)
+    token = create_access_token(subject="normal_user")
+    headers = {"Authorization": f"Bearer {token}"}
+    response = client.get("/users", headers=headers)
+    assert response.status_code == 403
+
+@then("the API returns a 403 Forbidden status code")
+def step_impl(context):
+    client = TestClient(app)
+    token = create_access_token(subject="normal_user")
+    headers = {"Authorization": f"Bearer {token}"}
+    response = client.get("/users", headers=headers)
+    assert response.status_code == 403
+
+@when("a normal user sends a POST request to \"/users\" with a valid user")
+def step_impl(context):
+    client = TestClient(app)
+    token = create_access_token(subject="normal_user")
+    headers = {"Authorization": f"Bearer {token}"}
+    user = {"email": "user@example.com", "password": "password"}
+    response = client.post("/users", headers=headers, json=user)
+    assert response.status_code == 403
+
+@then("the API returns a 403 Forbidden status code")
+def step_impl(context):
+    client = TestClient(app)
+    token = create_access_token(subject="normal_user")
+    headers = {"Authorization": f"Bearer {token}"}
+    response = client.post("/users", headers=headers, json={"email": "user@example.com", "password": "password"})
+    assert response.status_code == 403
+
+@when("a superuser sends a GET request to \"/users\"")
+def step_impl(context):
+    client = TestClient(app)
+    token = create_access_token(subject="superuser")
+    headers = {"Authorization": f"Bearer {token}"}
+    response = client.get("/users", headers=headers)
+    assert response.status_code == 200
+
+@then("the API returns a list of users")
+def step_impl(context):
+    client = TestClient(app)
+    token = create_access_token(subject="superuser")
+    headers = {"Authorization": f"Bearer {token}"}
+    response = client.get("/users", headers=headers)
+    assert response.status_code == 200
+
+@when("a superuser sends a POST request to \"/users\" with a valid user")
+def step_impl(context):
+    client = TestClient(app)
+    token = create_access_token(subject="superuser")
+    headers = {"Authorization": f"Bearer {token}"}
+    user = {"email": "user@example.com", "password": "password"}
+    response = client.post("/users", headers=headers, json=user)
+    assert response.status_code == 201
+
+@then("the API returns the created user")
+def step_impl(context):
+    client = TestClient(app)
+    token = create_access_token(subject="superuser")
+    headers = {"Authorization": f"Bearer {token}"}
+    user = {"email": "user@example.com", "password": "password"}
+    response = client.post("/users", headers=headers, json=user)
+    assert response.status_code == 201
+
+@when("a superuser sends a PATCH request to \"/users/{user_id}\" with a valid user")
+def step_impl(context):
+    client = TestClient(app)
+    token = create_access_token(subject="superuser")
+    headers = {"Authorization": f"Bearer {token}"}
+    user_id = 1
+    user = {"email": "user@example.com", "password": "password"}
+    response = client.patch(f"/users/{user_id}", headers=headers, json=user)
+    assert response.status_code == 200
+
+@then("the API returns the updated user")
+def step_impl(context):
+    client = TestClient(app)
+    token = create_access_token(subject="superuser")
+    headers = {"Authorization": f"Bearer {token}"}
+    user_id = 1
+    user = {"email": "user@example.com", "password": "password"}
+    response = client.patch(f"/users/{user_id}", headers=headers, json=user)
+    assert response.status_code == 200
+
+@when("a superuser sends a DELETE request to \"/users/{user_id}\"")
+def step_impl(context):
+    client = TestClient(app)
+    token = create_access_token(subject="superuser")
+    headers = {"Authorization": f"Bearer {token}"}
+    user_id = 1
+    response = client.delete(f"/users/{user_id}", headers=headers)
+    assert response.status_code == 200
+
+@then("the API returns a success message")
+def step_impl(context):
+    client = TestClient(app)
+    token = create_access_token(subject="superuser")
+    headers = {"Authorization": f"Bearer {token}"}
+    user_id = 1
+    response = client.delete(f"/users/{user_id}", headers=headers)
+    assert response.status_code == 200
+
+@when("a superuser sends a DELETE request to \"/users/me\"")
+def step_impl(context):
+    client = TestClient(app)
+    token = create_access_token(subject="superuser")
+    headers = {"Authorization": f"Bearer {token}"}
+    response = client.delete("/users/me", headers=headers)
+    assert response.status_code == 403
+
+@then("the API returns a 403 Forbidden status code")
+def step_impl(context):
+    client = TestClient(app)
+    token = create_access_token(subject="superuser")
+    headers = {"Authorization": f"Bearer {token}"}
+    response = client.delete("/users/me", headers=headers)
+    assert response.status_code == 403
+
+@when("a normal user sends a PATCH request to \"/users/me\" with a valid user")
+def step_impl(context):
+    client = TestClient(app)
+    token = create_access_token(subject="normal_user")
+    headers = {"Authorization": f"Bearer {token}"}
+    user = {"email": "user@example.com", "password": "password"}
+    response = client.patch("/users/me", headers=headers, json=user)
+    assert response.status_code == 200
+
+@then("the API returns the updated user")
+def step_impl(context):
+    client = TestClient(app)
+    token = create_access_token(subject="normal_user")
+    headers = {"Authorization": f"Bearer {token}"}
+    user = {"email": "user@example.com", "password": "password"}
+    response = client.patch("/users/me", headers=headers, json=user)
+    assert response.status_code == 200
+
+@when("a normal user sends a PATCH request to \"/users/me/password\" with a valid password")
+def step_impl(context):
+    client = TestClient(app)
+    token = create_access_token(subject="normal_user")
+    headers = {"Authorization": f"Bearer {token}"}
+    user = {"password": "password"}
+    response = client.patch("/users/me/password", headers=headers, json=user)
+    assert response.status_code == 200
+
+@then("the API returns a success message")
+def step_impl(context):
+    client = TestClient(app)
+    token = create_access_token(subject="normal_user")
+    headers = {"Authorization": f"Bearer {token}"}
+    user = {"password": "password"}
+    response = client.patch("/users/me/password", headers=headers, json=user)
+    assert response.status_code == 200
+
+@when("a normal user sends a DELETE request to \"/users/me\"")
+def step_impl(context):
+    client = TestClient(app)
+    token = create_access_token(subject="normal_user")
+    headers = {"Authorization": f"Bearer {token}"}
+    response = client.delete("/users/me", headers=headers)
+    assert response.status_code == 200
+
+@then("the API returns a success message")
+def step_impl(context):
+    client = TestClient(app)
+    token = create_access_token(subject="normal_user")
+    headers = {"Authorization": f"Bearer {token}"}
+    response = client.delete("/users/me", headers=headers)
+    assert response.status_code == 200
+
+@when("a superuser sends a PATCH request to \"/users/{user_id}\" with a non-existent user")
+def step_impl(context):
+    client = TestClient(app)

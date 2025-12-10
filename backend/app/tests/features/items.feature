@@ -1,68 +1,91 @@
-Feature: Item Management
+Feature: Items API Endpoints
 
-  Scenario: Create a new item
-    Given I am an authenticated user
-    When I create an item with title "Test Item" and description "Test Description"
-    Then the response status code should be 200
-    And the response should contain "Test Item" and "Test Description"
+  Scenario: Unauthenticated user tries to retrieve items
+    Given the API endpoint "/items" is accessed without authentication
+    When the GET request is made
+    Then a 401 Unauthorized response is returned
 
-  Scenario: Create an item with missing title
-    Given I am an authenticated user
-    When I create an item with missing title
-    Then the response status code should be 422
-    And the response should contain validation errors
+  Scenario: Normal user tries to retrieve items
+    Given the API endpoint "/items" is accessed with normal user authentication
+    When the GET request is made
+    Then a list of items is returned
 
-  Scenario: Get item by ID
-    Given I am an authenticated user
-    And there is an existing item with ID "1"
-    When I get the item with ID "1"
-    Then the response status code should be 200
-    And the response should contain the item details
+  Scenario: Superuser tries to retrieve items
+    Given the API endpoint "/items" is accessed with superuser authentication
+    When the GET request is made
+    Then a list of all items is returned
 
-  Scenario: Get non-existent item
-    Given I am an authenticated user
-    When I get the item with ID "999"
-    Then the response status code should be 404
+  Scenario: Normal user tries to retrieve an item
+    Given the API endpoint "/items/{id}" is accessed with normal user authentication
+    When the GET request is made with a valid item ID
+    Then the item is returned
 
-  Scenario: List all items
-    Given I am an authenticated user
-    And there are multiple items in the database
-    When I request all items
-    Then the response status code should be 200
-    And the response should contain a list of items
+  Scenario: Superuser tries to retrieve an item
+    Given the API endpoint "/items/{id}" is accessed with superuser authentication
+    When the GET request is made with a valid item ID
+    Then the item is returned
 
-  Scenario: List items with pagination
-    Given I am an authenticated user
-    And there are more than 10 items in the database
-    When I request items with skip 5 and limit 5
-    Then the response status code should be 200
-    And the response should contain exactly 5 items
+  Scenario: Normal user tries to retrieve an item with invalid ID
+    Given the API endpoint "/items/{id}" is accessed with normal user authentication
+    When the GET request is made with an invalid item ID
+    Then a 404 Not Found response is returned
 
-  Scenario: Update item
-    Given I am an authenticated user
-    And there is an existing item with ID "1"
-    When I update the item with ID "1" with new title "Updated Item"
-    Then the response status code should be 200
-    And the response should contain "Updated Item"
+  Scenario: Superuser tries to retrieve an item with invalid ID
+    Given the API endpoint "/items/{id}" is accessed with superuser authentication
+    When the GET request is made with an invalid item ID
+    Then a 404 Not Found response is returned
 
-  Scenario: Update non-existent item
-    Given I am an authenticated user
-    When I update the item with ID "999" with new title "Updated Item"
-    Then the response status code should be 404
+  Scenario: Normal user tries to create an item
+    Given the API endpoint "/items" is accessed with normal user authentication
+    When the POST request is made with valid item data
+    Then the item is created and returned
 
-  Scenario: Delete item
-    Given I am an authenticated user
-    And there is an existing item with ID "1"
-    When I delete the item with ID "1"
-    Then the response status code should be 200
-    And the item should no longer exist
+  Scenario: Superuser tries to create an item
+    Given the API endpoint "/items" is accessed with superuser authentication
+    When the POST request is made with valid item data
+    Then the item is created and returned
 
-  Scenario: Delete non-existent item
-    Given I am an authenticated user
-    When I delete the item with ID "999"
-    Then the response status code should be 404
+  Scenario: Normal user tries to create an item with missing required field
+    Given the API endpoint "/items" is accessed with normal user authentication
+    When the POST request is made with item data missing a required field
+    Then a 422 Unprocessable Entity response is returned
 
-  Scenario: Access item endpoint without authentication
-    Given I am not authenticated
-    When I request all items
-    Then the response status code should be 401
+  Scenario: Normal user tries to update an item
+    Given the API endpoint "/items/{id}" is accessed with normal user authentication
+    When the PUT request is made with valid item data
+    Then the item is updated and returned
+
+  Scenario: Superuser tries to update an item
+    Given the API endpoint "/items/{id}" is accessed with superuser authentication
+    When the PUT request is made with valid item data
+    Then the item is updated and returned
+
+  Scenario: Normal user tries to update an item with invalid ID
+    Given the API endpoint "/items/{id}" is accessed with normal user authentication
+    When the PUT request is made with an invalid item ID
+    Then a 404 Not Found response is returned
+
+  Scenario: Superuser tries to update an item with invalid ID
+    Given the API endpoint "/items/{id}" is accessed with superuser authentication
+    When the PUT request is made with an invalid item ID
+    Then a 404 Not Found response is returned
+
+  Scenario: Normal user tries to delete an item
+    Given the API endpoint "/items/{id}" is accessed with normal user authentication
+    When the DELETE request is made with a valid item ID
+    Then the item is deleted and a success message is returned
+
+  Scenario: Superuser tries to delete an item
+    Given the API endpoint "/items/{id}" is accessed with superuser authentication
+    When the DELETE request is made with a valid item ID
+    Then the item is deleted and a success message is returned
+
+  Scenario: Normal user tries to delete an item with invalid ID
+    Given the API endpoint "/items/{id}" is accessed with normal user authentication
+    When the DELETE request is made with an invalid item ID
+    Then a 404 Not Found response is returned
+
+  Scenario: Superuser tries to delete an item with invalid ID
+    Given the API endpoint "/items/{id}" is accessed with superuser authentication
+    When the DELETE request is made with an invalid item ID
+    Then a 404 Not Found response is returned
